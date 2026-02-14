@@ -59,7 +59,23 @@ for(let i=0;i<20;i++){
   scene.add(block);
 }
 
-// Simple movement
+// --- Mouse Look ---
+let yaw = 0;
+let pitch = 0;
+
+document.addEventListener("mousemove", (event)=>{
+  if(document.pointerLockElement === document.body){
+    yaw -= event.movementX * 0.002;
+    pitch -= event.movementY * 0.002;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+  }
+});
+
+document.body.addEventListener("click", ()=>{
+  document.body.requestPointerLock();
+});
+
+// --- Movement ---
 let velocityY = 0;
 let canJump = false;
 const gravity = -0.02;
@@ -73,10 +89,22 @@ function animate(){
 
   let speed = 0.2;
 
-  if(keys["KeyW"]) camera.position.z -= speed;
-  if(keys["KeyS"]) camera.position.z += speed;
-  if(keys["KeyA"]) camera.position.x -= speed;
-  if(keys["KeyD"]) camera.position.x += speed;
+  let forward = new THREE.Vector3(
+    Math.sin(yaw),
+    0,
+    Math.cos(yaw)
+  );
+
+  let right = new THREE.Vector3(
+    Math.cos(yaw),
+    0,
+    -Math.sin(yaw)
+  );
+
+  if(keys["KeyW"]) camera.position.add(forward.clone().multiplyScalar(-speed));
+  if(keys["KeyS"]) camera.position.add(forward.clone().multiplyScalar(speed));
+  if(keys["KeyA"]) camera.position.add(right.clone().multiplyScalar(-speed));
+  if(keys["KeyD"]) camera.position.add(right.clone().multiplyScalar(speed));
 
   velocityY += gravity;
   camera.position.y += velocityY;
@@ -92,6 +120,10 @@ function animate(){
     canJump = false;
   }
 
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
   document.getElementById("info").innerText =
     "Height: " + Math.floor(camera.position.y);
 
@@ -99,13 +131,8 @@ function animate(){
 }
 
 animate();
-
-window.addEventListener("resize", ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
 </script>
+
 
 </body>
 </html>
