@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>3D Minecraft Parkour</title>
+  <title>3D Parkour</title>
   <style>
     body { margin: 0; overflow: hidden; }
     #info {
@@ -18,113 +18,94 @@
   </style>
 </head>
 <body>
-  <div id="info">Click to start | Height: 0</div>
+<div id="info">Click to Start | Height: 0</div>
 
-  <script type="module">
-    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js";
-    import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/PointerLockControls.js";
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    let scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
+<script>
+let scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
 
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 5, 10);
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0,5,10);
 
-    let renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+let renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-    // Light
-    let light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(10,20,10);
-    scene.add(light);
+// Light
+let light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10,20,10);
+scene.add(light);
 
-    let ambient = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambient);
+let ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
 
-    // Controls
-    let controls = new PointerLockControls(camera, document.body);
-    document.addEventListener("click", () => controls.lock());
+// Ground
+let ground = new THREE.Mesh(
+  new THREE.BoxGeometry(50,1,50),
+  new THREE.MeshLambertMaterial({color:0x228B22})
+);
+ground.position.y = -1;
+scene.add(ground);
 
-    // Player physics
-    let velocity = new THREE.Vector3();
-    let canJump = false;
-    const gravity = -0.02;
+// Platforms
+for(let i=0;i<20;i++){
+  let block = new THREE.Mesh(
+    new THREE.BoxGeometry(3,0.5,3),
+    new THREE.MeshLambertMaterial({color:0x8B4513})
+  );
+  block.position.set(Math.random()*20-10, i*3, Math.random()*20-10);
+  scene.add(block);
+}
 
-    let keys = {};
-    document.addEventListener("keydown", e => keys[e.code] = true);
-    document.addEventListener("keyup", e => keys[e.code] = false);
+// Simple movement
+let velocityY = 0;
+let canJump = false;
+const gravity = -0.02;
 
-    // Platforms
-    let platforms = [];
+let keys = {};
+document.addEventListener("keydown", e => keys[e.code]=true);
+document.addEventListener("keyup", e => keys[e.code]=false);
 
-    for(let i = 0; i < 30; i++){
-      let block = new THREE.Mesh(
-        new THREE.BoxGeometry(3, 0.5, 3),
-        new THREE.MeshPhongMaterial({color: 0x8B4513})
-      );
+function animate(){
+  requestAnimationFrame(animate);
 
-      block.position.set(
-        Math.random()*20-10,
-        i*3,
-        Math.random()*20-10
-      );
+  let speed = 0.2;
 
-      scene.add(block);
-      platforms.push(block);
-    }
+  if(keys["KeyW"]) camera.position.z -= speed;
+  if(keys["KeyS"]) camera.position.z += speed;
+  if(keys["KeyA"]) camera.position.x -= speed;
+  if(keys["KeyD"]) camera.position.x += speed;
 
-    // Ground
-    let ground = new THREE.Mesh(
-      new THREE.BoxGeometry(50, 1, 50),
-      new THREE.MeshPhongMaterial({color: 0x228B22})
-    );
-    ground.position.y = -1;
-    scene.add(ground);
-    platforms.push(ground);
+  velocityY += gravity;
+  camera.position.y += velocityY;
 
-    // Height display
-    let info = document.getElementById("info");
+  if(camera.position.y < 2){
+    camera.position.y = 2;
+    velocityY = 0;
+    canJump = true;
+  }
 
-    function animate(){
-      requestAnimationFrame(animate);
+  if(keys["Space"] && canJump){
+    velocityY = 0.5;
+    canJump = false;
+  }
 
-      // Movement
-      let speed = 0.1;
+  document.getElementById("info").innerText =
+    "Height: " + Math.floor(camera.position.y);
 
-      if(keys["KeyW"]) controls.moveForward(speed);
-      if(keys["KeyS"]) controls.moveForward(-speed);
-      if(keys["KeyA"]) controls.moveRight(-speed);
-      if(keys["KeyD"]) controls.moveRight(speed);
+  renderer.render(scene,camera);
+}
 
-      velocity.y += gravity;
-      camera.position.y += velocity.y;
+animate();
 
-      // Simple ground collision
-      if(camera.position.y < 2){
-        velocity.y = 0;
-        camera.position.y = 2;
-        canJump = true;
-      }
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 
-      if(keys["Space"] && canJump){
-        velocity.y = 0.4;
-        canJump = false;
-      }
-
-      info.textContent = "Height: " + Math.floor(camera.position.y);
-
-      renderer.render(scene, camera);
-    }
-
-    animate();
-
-    window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-  </script>
 </body>
 </html>
