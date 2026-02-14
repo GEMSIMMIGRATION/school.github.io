@@ -1,138 +1,250 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>3D Parkour</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    #info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-family: Arial;
-      font-size: 18px;
-      background: rgba(0,0,0,0.5);
-      padding: 5px 10px;
-      border-radius: 5px;
-    }
-  </style>
+<title>3D Minecraft Parkour</title>
+
+<style>
+body { margin: 0; overflow: hidden; }
+
+#info {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  font-family: Arial;
+  font-size: 18px;
+  background: rgba(0,0,0,0.5);
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+</style>
+
 </head>
 <body>
-<div id="info">Click to Start | Height: 0</div>
+
+<div id="info">Click to lock mouse | WASD move | Space jump</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <script>
+
+// SCENE
 let scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 
-let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,5,10);
+// CAMERA
+let camera = new THREE.PerspectiveCamera(
+75,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+);
 
-let renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
+camera.position.set(0,3,10);
+
+// RENDERER
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Light
-let light = new THREE.DirectionalLight(0xffffff, 1);
+// LIGHT
+let light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(10,20,10);
 scene.add(light);
 
-let ambient = new THREE.AmbientLight(0xffffff, 0.5);
+let ambient = new THREE.AmbientLight(0xffffff,0.4);
 scene.add(ambient);
 
-// Ground
-let ground = new THREE.Mesh(
-  new THREE.BoxGeometry(50,1,50),
-  new THREE.MeshLambertMaterial({color:0x228B22})
-);
-ground.position.y = -1;
-scene.add(ground);
+// PLAYER PHYSICS
+let velocityY = 0;
+let canJump = false;
+const gravity = -0.03;
+const playerHeight = 2;
 
-// Platforms
-for(let i=0;i<20;i++){
-  let block = new THREE.Mesh(
-    new THREE.BoxGeometry(3,0.5,3),
-    new THREE.MeshLambertMaterial({color:0x8B4513})
-  );
-  block.position.set(Math.random()*20-10, i*3, Math.random()*20-10);
-  scene.add(block);
+// PLATFORMS
+let platforms = [];
+
+// GROUND
+let ground = new THREE.Mesh(
+new THREE.BoxGeometry(50,1,50),
+new THREE.MeshLambertMaterial({color:0x22aa22})
+);
+
+ground.position.y = -0.5;
+scene.add(ground);
+platforms.push(ground);
+
+// PARKOUR BLOCKS
+for(let i=0;i<40;i++){
+
+let block = new THREE.Mesh(
+new THREE.BoxGeometry(3,0.5,3),
+new THREE.MeshLambertMaterial({color:0x8B4513})
+);
+
+block.position.set(
+Math.random()*20-10,
+i*3+2,
+Math.random()*20-10
+);
+
+scene.add(block);
+platforms.push(block);
+
 }
 
-// --- Mouse Look ---
+// MOUSE LOOK
 let yaw = 0;
 let pitch = 0;
 
-document.addEventListener("mousemove", (event)=>{
-  if(document.pointerLockElement === document.body){
-    yaw -= event.movementX * 0.002;
-    pitch -= event.movementY * 0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-  }
+document.body.onclick = ()=>{
+document.body.requestPointerLock();
+};
+
+document.addEventListener("mousemove",(e)=>{
+
+if(document.pointerLockElement===document.body){
+
+yaw -= e.movementX*0.002;
+pitch -= e.movementY*0.002;
+
+pitch = Math.max(-Math.PI/2,Math.min(Math.PI/2,pitch));
+
+}
+
 });
 
-document.body.addEventListener("click", ()=>{
-  document.body.requestPointerLock();
-});
-
-// --- Movement ---
-let velocityY = 0;
-let canJump = false;
-const gravity = -0.02;
-
+// KEYBOARD
 let keys = {};
-document.addEventListener("keydown", e => keys[e.code]=true);
-document.addEventListener("keyup", e => keys[e.code]=false);
 
+document.addEventListener("keydown",e=>{
+keys[e.code]=true;
+});
+
+document.addEventListener("keyup",e=>{
+keys[e.code]=false;
+});
+
+// COLLISION
+function checkCollision(){
+
+canJump=false;
+
+for(let platform of platforms){
+
+let px=camera.position.x;
+let py=camera.position.y;
+let pz=camera.position.z;
+
+let bx=platform.position.x;
+let by=platform.position.y;
+let bz=platform.position.z;
+
+let halfX=1.5;
+let halfZ=1.5;
+let top=by+0.25;
+
+if(
+Math.abs(px-bx)<halfX &&
+Math.abs(pz-bz)<halfZ
+){
+
+if(py>=top && py<=top+1 && velocityY<=0){
+
+camera.position.y=top+playerHeight/2;
+velocityY=0;
+canJump=true;
+
+}
+
+}
+
+}
+
+}
+
+// GAME LOOP
 function animate(){
-  requestAnimationFrame(animate);
 
-  let speed = 0.2;
+requestAnimationFrame(animate);
 
-  let forward = new THREE.Vector3(
-    Math.sin(yaw),
-    0,
-    Math.cos(yaw)
-  );
+// MOVEMENT
+let speed=0.15;
 
-  let right = new THREE.Vector3(
-    Math.cos(yaw),
-    0,
-    -Math.sin(yaw)
-  );
+let forwardX=Math.sin(yaw);
+let forwardZ=Math.cos(yaw);
 
-  if(keys["KeyW"]) camera.position.add(forward.clone().multiplyScalar(-speed));
-  if(keys["KeyS"]) camera.position.add(forward.clone().multiplyScalar(speed));
-  if(keys["KeyA"]) camera.position.add(right.clone().multiplyScalar(-speed));
-  if(keys["KeyD"]) camera.position.add(right.clone().multiplyScalar(speed));
+let rightX=Math.cos(yaw);
+let rightZ=-Math.sin(yaw);
 
-  velocityY += gravity;
-  camera.position.y += velocityY;
+if(keys["KeyW"]){
 
-  if(camera.position.y < 2){
-    camera.position.y = 2;
-    velocityY = 0;
-    canJump = true;
-  }
+camera.position.x-=forwardX*speed;
+camera.position.z-=forwardZ*speed;
 
-  if(keys["Space"] && canJump){
-    velocityY = 0.5;
-    canJump = false;
-  }
+}
 
-  camera.rotation.order = "YXZ";
-  camera.rotation.y = yaw;
-  camera.rotation.x = pitch;
+if(keys["KeyS"]){
 
-  document.getElementById("info").innerText =
-    "Height: " + Math.floor(camera.position.y);
+camera.position.x+=forwardX*speed;
+camera.position.z+=forwardZ*speed;
 
-  renderer.render(scene,camera);
+}
+
+if(keys["KeyA"]){
+
+camera.position.x-=rightX*speed;
+camera.position.z-=rightZ*speed;
+
+}
+
+if(keys["KeyD"]){
+
+camera.position.x+=rightX*speed;
+camera.position.z+=rightZ*speed;
+
+}
+
+// GRAVITY
+velocityY+=gravity;
+camera.position.y+=velocityY;
+
+// COLLISION
+checkCollision();
+
+// JUMP
+if(keys["Space"] && canJump){
+
+velocityY=0.5;
+canJump=false;
+
+}
+
+// APPLY CAMERA ROTATION
+camera.rotation.order="YXZ";
+camera.rotation.y=yaw;
+camera.rotation.x=pitch;
+
+// HEIGHT DISPLAY
+document.getElementById("info").innerText =
+"Height: "+Math.floor(camera.position.y);
+
+renderer.render(scene,camera);
+
 }
 
 animate();
-</script>
 
+// RESIZE
+window.addEventListener("resize",()=>{
+
+camera.aspect=window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth,window.innerHeight);
+
+});
+
+</script>
 
 </body>
 </html>
